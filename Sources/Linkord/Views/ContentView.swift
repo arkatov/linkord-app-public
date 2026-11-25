@@ -35,9 +35,16 @@ struct ContentView: View {
                     TextField(strings("searchTitle"), text: $library.query)
                         .textFieldStyle(.plain).accessibilityLabel(strings("search"))
                     if isSearching {
-                        Text(library.results.count.formatted()).foregroundStyle(.secondary)
-                        Button { library.query = "" } label: { Image(systemName: "xmark.circle.fill") }
+                        HStack(spacing: design.controlGap) {
+                            Text(library.results.count.formatted())
+                                .font(design.font(design.caption))
+                            Button { library.query = "" } label: {
+                                Image(systemName: "xmark.circle.fill")
+                            }
                             .accessibilityLabel(strings("clearSearch"))
+                        }
+                        .foregroundStyle(Design.muted)
+                        .padding(.trailing, design.gap)
                     }
                     Button(action: library.newLink) {
                         HStack(spacing: design.controlGap) {

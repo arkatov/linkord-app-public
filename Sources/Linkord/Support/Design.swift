@@ -21,6 +21,8 @@ struct Design {
     var searchWidth: CGFloat { 240 * scale }
     var folderGap: CGFloat { 5 * scale }
     var controlGap: CGFloat { 6 * scale }
+    // The native single-line editor draws its text above the unfocused baseline.
+    var fieldEditorOffset: CGFloat { 1 * scale }
     var cardGap: CGFloat { 3 * scale }
     var pathGap: CGFloat { 11 * scale }
     var cardMargin: CGFloat { 10 * scale }

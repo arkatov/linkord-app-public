@@ -62,7 +62,7 @@ private struct FolderRow: View {
                 .foregroundStyle(.secondary)
                 .opacity(library.catalog.children[folder, default: []].isEmpty ? 0 : 1)
                 .frame(width: design.arrowWidth)
-            Image(systemName: "folder.fill").font(design.font(design.body)).frame(width: design.icon, height: design.icon).foregroundStyle(Design.accent)
+            Image(systemName: isRoot ? "folder.fill" : "folder").font(design.font(design.body)).frame(width: design.icon, height: design.icon).foregroundStyle(Design.accent)
                 .padding(.trailing, design.controlGap - design.folderGap)
             if renaming {
                 InlineFolderName(name: folder.lastPathComponent, fontSize: design.body, label: strings("name")) { name in

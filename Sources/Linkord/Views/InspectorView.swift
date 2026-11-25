@@ -4,6 +4,8 @@ struct InspectorView: View {
     @ObservedObject var library: Library
     let strings: L10n
     let design: Design
+    @FocusState private var focusedField: String?
+
     private func binding(_ key: WritableKeyPath<Draft, String>) -> Binding<String> {
         Binding(get: { library.draft?[keyPath: key] ?? "" }, set: { value in
             library.updateDraft(key, to: value)
@@ -26,7 +28,7 @@ struct InspectorView: View {
                             names.enumerated().reduce(Text("")) { path, element in
                                 let prefix = element.offset == 0 ? path : path + Text(" › ").foregroundColor(Design.pathSeparator)
                                 return prefix + Text(verbatim: element.element).foregroundColor(Design.pathName)
-                            }.fixedSize(horizontal: false, vertical: true)
+                            }.font(design.font(design.caption)).fixedSize(horizontal: false, vertical: true)
                         } icon: { Image(systemName: "folder").foregroundStyle(.secondary) }
                     }
                     field("url", key: \.address)
@@ -66,6 +68,8 @@ struct InspectorView: View {
         VStack(alignment: .leading, spacing: design.gap) {
             fieldLabel(key, key: path, metadata: metadata)
             TextField("", text: binding(path))
+                .focused($focusedField, equals: key)
+                .offset(y: focusedField == key ? design.fieldEditorOffset : 0)
                 .accessibilityLabel(strings(key))
                 .modifier(InspectorFieldStyle(design: design))
         }
@@ -76,7 +80,7 @@ struct InspectorView: View {
         metadata: KeyPath<PageMetadata, String?>?
     ) -> some View {
         HStack {
-            Text(strings(key))
+            Text(strings(key)).font(design.font(design.caption))
             if let metadata {
                 let label = strings(key == "title" ? "loadTitle" : "loadDescription")
                 Spacer()

@@ -30,9 +30,9 @@ struct InspectorView: View {
                         } icon: { Image(systemName: "folder").foregroundStyle(.secondary) }
                     }
                     field("url", key: \.address)
-                    field("title", key: \.title)
+                    field("title", key: \.title, metadata: \.title)
                     VStack(alignment: .leading, spacing: design.gap) {
-                        Text(strings("notes")).foregroundStyle(.secondary)
+                        fieldLabel("notes", key: \.notes, metadata: \.description)
                         TextField("", text: binding(\.notes), axis: .vertical)
                             .accessibilityLabel(strings("notes"))
                             .lineLimit(Design.descriptionLines).modifier(InspectorFieldStyle(design: design))
@@ -59,13 +59,40 @@ struct InspectorView: View {
         .frame(maxWidth: .infinity)
         .background(Color(nsColor: Design.formBackground))
     }
-    private func field(_ key: String, key path: WritableKeyPath<Draft, String>) -> some View {
+    private func field(
+        _ key: String, key path: WritableKeyPath<Draft, String>,
+        metadata: KeyPath<PageMetadata, String?>? = nil
+    ) -> some View {
         VStack(alignment: .leading, spacing: design.gap) {
-            Text(strings(key)).foregroundStyle(.secondary)
+            fieldLabel(key, key: path, metadata: metadata)
             TextField("", text: binding(path))
                 .accessibilityLabel(strings(key))
                 .modifier(InspectorFieldStyle(design: design))
         }
+    }
+
+    private func fieldLabel(
+        _ key: String, key path: WritableKeyPath<Draft, String>,
+        metadata: KeyPath<PageMetadata, String?>?
+    ) -> some View {
+        HStack {
+            Text(strings(key))
+            if let metadata {
+                let label = strings(key == "title" ? "loadTitle" : "loadDescription")
+                Spacer()
+                Button {
+                    Task { await library.loadMetadata(metadata, into: path) }
+                } label: {
+                    Image(systemName: "arrow.down.circle")
+                        .font(design.font(design.body))
+                }
+                .buttonStyle(.plain)
+                .disabled(library.draft.flatMap { LinkFile.webURL($0.address) } == nil)
+                .help(label)
+                .accessibilityLabel(label)
+            }
+        }
+        .foregroundStyle(.secondary)
     }
 }
 

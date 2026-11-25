@@ -149,6 +149,18 @@ final class Library: ObservableObject {
         if value.file != nil { save(close: false) }
     }
 
+    func loadMetadata(_ key: KeyPath<PageMetadata, String?>, into field: WritableKeyPath<Draft, String>) async {
+        guard let original = draft, let url = LinkFile.webURL(original.address) else { return }
+        let metadata = try? await PageMetadata.fetch(url)
+        guard let current = draft, current.id == original.id, current.address == original.address,
+              current[keyPath: field] == original[keyPath: field] else { return }
+        guard let text = metadata?[keyPath: key] else {
+            error = strings("metadataUnavailable")
+            return
+        }
+        updateDraft(field, to: text)
+    }
+
     func edit(_ link: LinkFile) {
         do {
             let text = try LinkFile.readText(from: link.id)

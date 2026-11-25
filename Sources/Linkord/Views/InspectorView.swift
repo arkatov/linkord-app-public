@@ -51,7 +51,13 @@ struct InspectorView: View {
                                     .disabled(LinkFile.webURL(draft.address) == nil)
                                     .keyboardShortcut(.return, modifiers: .command)
                             }
-                        } else { Text(strings("autosave")).font(design.font(design.caption)).foregroundStyle(.secondary) }
+                        } else {
+                            Text(strings("autosave"))
+                                .font(design.font(design.caption))
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: .infinity)
+                        }
                     }
                 }
             }

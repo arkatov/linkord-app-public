@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct LinkCard: View {
     let link: LinkFile
@@ -20,10 +21,10 @@ struct LinkCard: View {
             Favicon(url: link.url, design: design)
                 .padding(.top, Design.ruleWidth)
             VStack(alignment: .leading, spacing: design.cardGap) {
-                Button { NSWorkspace.shared.open(link.url) } label: {
+                Button(action: openLink) {
                     Text(link.title.isEmpty ? link.url.host ?? link.url.absoluteString : link.title)
                         .font(.custom("ApercuPro-Regular", fixedSize: design.title))
-                        .foregroundStyle(Design.accent).multilineTextAlignment(.leading)
+                        .foregroundStyle(design.accent).multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                 }.buttonStyle(.plain)
                 if !link.notes.isEmpty {
@@ -50,7 +51,7 @@ struct LinkCard: View {
                     Image(systemName: "pin")
                         .font(.system(size: design.caption))
                         .frame(width: design.icon, height: design.icon)
-                        .foregroundStyle(Design.accent)
+                        .foregroundStyle(design.accent)
                 }.buttonStyle(.plain).accessibilityLabel(strings("unpin"))
             }
         }
@@ -60,6 +61,9 @@ struct LinkCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .contextMenu {
+            Button(strings("openLink"), action: openLink)
+            browserMenu
+            Divider()
             Button(strings(link.pinned ? "unpin" : "pin")) { library.togglePin(link) }
             Divider()
             Button(strings("copy")) {
@@ -72,6 +76,45 @@ struct LinkCard: View {
             Button(strings("delete")) { library.trash(link.id) }
         }
     }
+    private func openLink() {
+        if !NSWorkspace.shared.open(link.url) { library.error = strings("openLinkFailed") }
+    }
+
+    private var browserMenu: some View {
+        let workspace = NSWorkspace.shared
+        let defaultBrowser = workspace.urlForApplication(toOpen: link.url)
+        let htmlHandlers = Set(workspace.urlsForApplications(toOpen: UTType.html).map(\.standardizedFileURL))
+        let alternatives = Set(workspace.urlsForApplications(toOpen: link.url).map(\.standardizedFileURL))
+            .intersection(htmlHandlers)
+            .filter { $0 != defaultBrowser?.standardizedFileURL }
+            .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+
+        return Menu(strings("openWith")) {
+            if let defaultBrowser {
+                browserButton(defaultBrowser, isDefault: true)
+                if !alternatives.isEmpty { Divider() }
+            }
+            ForEach(alternatives, id: \.self) { browserButton($0) }
+        }
+        .disabled(defaultBrowser == nil && alternatives.isEmpty)
+    }
+
+    private func browserButton(_ app: URL, isDefault: Bool = false) -> some View {
+        let name = FileManager.default.displayName(atPath: app.path)
+        let title = isDefault ? String(format: strings("defaultBrowser"), name) : name
+        return Button {
+            NSWorkspace.shared.open([link.url], withApplicationAt: app, configuration: .init()) { _, error in
+                if let error { Task { @MainActor in library.error = error.localizedDescription } }
+            }
+        } label: {
+            Label {
+                Text(title)
+            } icon: {
+                Image(nsImage: NSWorkspace.shared.icon(forFile: app.path))
+            }
+        }
+    }
+
     private var breadcrumbs: Text {
         var text = Text("")
         for (index, folder) in path.enumerated() {

@@ -6,7 +6,20 @@ struct Design {
         .systemFont(ofSize: size, weight: .regular)
     }
     func font(_ size: CGFloat) -> Font { .system(size: size, weight: .regular) }
+    static let defaultAccentRGB = 0xB9DDA6
     var scale: CGFloat = 1
+    var accentRGB = defaultAccentRGB
+
+    var accent: Color {
+        Color(.sRGB, red: Double((accentRGB >> 16) & 255) / 255,
+              green: Double((accentRGB >> 8) & 255) / 255, blue: Double(accentRGB & 255) / 255)
+    }
+
+    static func rgbValue(for color: Color) -> Int? {
+        guard let color = NSColor(color).usingColorSpace(.sRGB) else { return nil }
+        func channel(_ component: CGFloat) -> Int { Int((min(1, max(0, component)) * 255).rounded()) }
+        return (channel(color.redComponent) << 16) | (channel(color.greenComponent) << 8) | channel(color.blueComponent)
+    }
     var body: CGFloat { 15 * scale }
     var caption: CGFloat { 12 * scale }
     var title: CGFloat { 16 * scale }
@@ -17,12 +30,13 @@ struct Design {
     var radius: CGFloat { 7 * scale }
     var row: CGFloat { 30 * scale }
     var indent: CGFloat { 20 * scale }
+    var minimumInspectorWidth: CGFloat { 220 * scale }
+    var minimumLinkPaneWidth: CGFloat { 220 * scale }
     var inspector: CGFloat { searchWidth + row + padding + gap + small }
     var searchWidth: CGFloat { 240 * scale }
     var folderGap: CGFloat { 5 * scale }
     var controlGap: CGFloat { 6 * scale }
-    // The native single-line editor draws its text above the unfocused baseline.
-    var fieldEditorOffset: CGFloat { 1 * scale }
+    var inspectorFieldVerticalPadding: CGFloat { 6 * scale }
     var cardGap: CGFloat { 3 * scale }
     var pathGap: CGFloat { 11 * scale }
     var cardMargin: CGFloat { 10 * scale }
@@ -37,13 +51,17 @@ struct Design {
     static let windowControlCenterY: CGFloat = 22.5
     static let windowControlGap: CGFloat = 9
     static let rule = Color.primary.opacity(0.10)
+    static let resizeRuleFadeDuration = 0.15
+    static let resizeRuleHighlight = LinearGradient(
+        colors: [.clear, .primary.opacity(0.22), .clear], startPoint: .top, endPoint: .bottom
+    )
     static let ruleWidth: CGFloat = 1
-    static let inspectorFraction: CGFloat = 0.5
     static let window = CGSize(width: 900, height: 620)
     static let minimum = CGSize(width: 760, height: 440)
     static let sidebar: CGFloat = 240
     static let sidebarMin: CGFloat = 170
     static let sidebarMax: CGFloat = 360
+    static let dockMenuIconSize = CGSize(width: 16, height: 16)
     static let settingsWidth: CGFloat = 340
     static let descriptionLines = 5...12
     static let minScale = 0.8
@@ -61,7 +79,7 @@ struct Design {
             appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
         })
     }
-    static let accent = themed(NSColor(srgbRed: 185/255, green: 221/255, blue: 166/255, alpha: 1), light: .systemGreen)
+    static let controlHover = themed(.white, light: .labelColor)
     static let pathName = themed(NSColor(srgbRed: 216/255, green: 216/255, blue: 216/255, alpha: 1), light: .labelColor)
     static let muted = themed(NSColor(srgbRed: 148/255, green: 148/255, blue: 148/255, alpha: 1), light: .secondaryLabelColor)
     static let pathSeparator = Color(nsColor: .tertiaryLabelColor)
@@ -69,6 +87,7 @@ struct Design {
 }
 
 struct L10n {
+    static let defaultLanguage = Locale.preferredLanguages.first?.hasPrefix("ru") == true ? "ru" : "en"
     var language: String
     var locale: Locale { Locale(identifier: language) }
     func callAsFunction(_ key: String) -> String { Self.strings[key]?[language == "ru" ? 0 : 1] ?? key }
@@ -90,8 +109,10 @@ struct L10n {
         "url": ["URL", "URL"], "notes": ["Описание", "Description"],
         "loadTitle": ["Загрузить заголовок с сайта", "Load Title from Website"],
         "loadDescription": ["Загрузить описание с сайта", "Load Description from Website"],
-        "metadataUnavailable": ["Сайт не предоставил данные для этого поля.", "Couldn’t load this field from the website."],
         "save": ["Сохранить", "Save"], "cancel": ["Отмена", "Cancel"],
+        "openLink": ["Открыть ссылку", "Open Link"], "openWith": ["Открыть в", "Open With"],
+        "defaultBrowser": ["%@ (по умолчанию)", "%@ (default)"],
+        "openLinkFailed": ["Не удалось открыть ссылку в браузере.", "Couldn’t open the link in a browser."],
         "close": ["Закрыть инспектор", "Close Inspector"], "copy": ["Копировать URL", "Copy URL"],
         "move": ["Перенести в…", "Move To…"], "delete": ["Переместить в Корзину", "Move to Trash"],
         "untitledFolder": ["Новая папка", "New Folder"],
@@ -107,6 +128,7 @@ struct L10n {
         "unreadable": ["Не удалось прочитать файлов или папок:", "Files or folders that couldn’t be read:"],
         "loading": ["Загрузка каталога…", "Loading catalog…"],
         "autosave": ["Изменения сохраняются автоматически", "Changes save automatically"],
+        "accentColor": ["Акцентный цвет", "Accent Color"],
         "appearance": ["Оформление", "Appearance"], "system": ["Системное", "System"],
         "light": ["Светлое", "Light"], "dark": ["Тёмное", "Dark"]
     ]
@@ -114,3 +136,14 @@ struct L10n {
 
 // Select the property wrapper on Command Line Tools SDKs without the State macro plugin.
 typealias ViewState<Value> = SwiftUI.State<Value>
+
+struct HoverControlColor: ViewModifier {
+    @Environment(\.isEnabled) private var isEnabled
+    @ViewState private var isHovered = false
+
+    func body(content: Content) -> some View {
+        content
+            .foregroundStyle(isEnabled && isHovered ? Design.controlHover : Design.muted)
+            .onHover { isHovered = $0 }
+    }
+}

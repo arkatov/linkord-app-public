@@ -26,7 +26,7 @@ struct SidebarView: View {
                     if library.newFolderParent == row.url {
                         HStack(spacing: design.controlGap) {
                             Color.clear.frame(width: design.gap)
-                            Image(systemName: "folder").font(.system(size: design.icon)).foregroundStyle(Design.accent)
+                            Image(systemName: "folder").font(.system(size: design.icon)).foregroundStyle(design.accent)
                             InlineFolderName(name: strings("untitledFolder"), fontSize: design.body, label: strings("name")) { name in
                                 library.newFolderParent = nil
                                 if let name { library.createFolder(in: row.url, named: name) }
@@ -62,7 +62,7 @@ private struct FolderRow: View {
                 .foregroundStyle(.secondary)
                 .opacity(library.catalog.children[folder, default: []].isEmpty ? 0 : 1)
                 .frame(width: design.arrowWidth)
-            Image(systemName: isRoot ? "folder.fill" : "folder").font(design.font(design.body)).frame(width: design.icon, height: design.icon).foregroundStyle(Design.accent)
+            Image(systemName: isRoot ? "folder.fill" : "folder").font(design.font(design.body)).frame(width: design.icon, height: design.icon).foregroundStyle(design.accent)
                 .padding(.trailing, design.controlGap - design.folderGap)
             if renaming {
                 InlineFolderName(name: folder.lastPathComponent, fontSize: design.body, label: strings("name")) { name in

@@ -28,18 +28,23 @@ final class Library: ObservableObject {
     @Published var catalog = Catalog()
     @Published var results: [LinkFile] = []
     @Published var query = "" { didSet { filter() } }
+    @Published private var websiteMetadata: PageMetadata?
     private var metadataTask: Task<Void, Never>?
     @Published var draft: Draft? {
         didSet {
             if oldValue?.id != draft?.id || oldValue?.address != draft?.address {
                 metadataTask?.cancel()
-                guard let value = draft, value.file == nil || value.id == oldValue?.id,
-                      let url = LinkFile.webURL(value.address) else { return }
+                websiteMetadata = nil
+                guard let value = draft, let url = LinkFile.webURL(value.address) else { return }
+                let shouldAutofill = value.file == nil || value.id == oldValue?.id
+                let language = strings.language
                 metadataTask = Task {
                     try? await Task.sleep(for: .milliseconds(400))
-                    guard !Task.isCancelled, let metadata = try? await PageMetadata.fetch(url),
+                    guard !Task.isCancelled, let metadata = try? await PageMetadata.fetchLocalized(url, language: language),
                           !Task.isCancelled, var current = draft, current.id == value.id,
                           current.address == value.address else { return }
+                    websiteMetadata = metadata
+                    guard shouldAutofill else { return }
                     if !current.manualTitle, let title = metadata.title { current.title = title }
                     if !current.manualNotes, let notes = metadata.description { current.notes = notes }
                     guard current.title != draft?.title || current.notes != draft?.notes else { return }
@@ -58,7 +63,17 @@ final class Library: ObservableObject {
     private var filterRevision = 0
     private var indexed: [(LinkFile, String)] = []
     private var refreshTask: Task<Void, Never>?
-    var strings: L10n { L10n(language: UserDefaults.standard.string(forKey: "language") ?? "en") }
+    private static let recentCatalogsKey = "recentCatalogPaths"
+    private static let recentCatalogLimit = 10
+
+    var recentCatalogs: [URL] {
+        (UserDefaults.standard.stringArray(forKey: Self.recentCatalogsKey) ?? []).compactMap { path in
+            let folder = URL(fileURLWithPath: path, isDirectory: true)
+            return (try? folder.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true ? folder : nil
+        }
+    }
+
+    var strings: L10n { L10n(language: UserDefaults.standard.string(forKey: "language") ?? L10n.defaultLanguage) }
 
     init() {
         let path = UserDefaults.standard.string(forKey: "catalogPath") ?? ""
@@ -78,6 +93,10 @@ final class Library: ObservableObject {
         root = url; selected = url; expanded = [url]; draft = nil; query = ""
         catalog = Catalog(); indexed = []; results = []
         UserDefaults.standard.set(url.path, forKey: "catalogPath")
+        if (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true {
+            let recent = [url] + recentCatalogs.filter { $0 != url }
+            UserDefaults.standard.set(recent.prefix(Self.recentCatalogLimit).map(\.path), forKey: Self.recentCatalogsKey)
+        }
         watcher = FolderWatcher(root: url) { [weak self] in self?.refresh() }
         refresh()
     }
@@ -149,15 +168,13 @@ final class Library: ObservableObject {
         if value.file != nil { save(close: false) }
     }
 
-    func loadMetadata(_ key: KeyPath<PageMetadata, String?>, into field: WritableKeyPath<Draft, String>) async {
-        guard let original = draft, let url = LinkFile.webURL(original.address) else { return }
-        let metadata = try? await PageMetadata.fetch(url)
-        guard let current = draft, current.id == original.id, current.address == original.address,
-              current[keyPath: field] == original[keyPath: field] else { return }
-        guard let text = metadata?[keyPath: key] else {
-            error = strings("metadataUnavailable")
-            return
-        }
+    func availableMetadata(_ key: KeyPath<PageMetadata, String?>, for field: KeyPath<Draft, String>) -> String? {
+        guard let draft, let text = websiteMetadata?[keyPath: key], text != draft[keyPath: field] else { return nil }
+        return text
+    }
+
+    func loadMetadata(_ key: KeyPath<PageMetadata, String?>, into field: WritableKeyPath<Draft, String>) {
+        guard let text = availableMetadata(key, for: field) else { return }
         updateDraft(field, to: text)
     }
 

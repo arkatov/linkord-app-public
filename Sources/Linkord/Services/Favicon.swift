@@ -56,7 +56,7 @@ struct Favicon: View {
     var body: some View {
         Group {
             if let image { Image(nsImage: image).resizable().scaledToFit() }
-            else { Image(systemName: "pointer.arrow.ipad.rays").font(design.font(design.body)).foregroundStyle(Design.accent) }
+            else { Image(systemName: "pointer.arrow.ipad.rays").font(design.font(design.body)).foregroundStyle(design.accent) }
         }
         .frame(width: design.icon, height: design.icon)
         .accessibilityHidden(true)

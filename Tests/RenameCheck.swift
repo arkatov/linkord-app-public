@@ -47,6 +47,20 @@ struct RenameCheck {
         library.save(close: true)
         let saved = try fm.contentsOfDirectory(at: created, includingPropertiesForKeys: nil)
         precondition(saved.count == 1 && saved[0].pathExtension == "txt")
+        let defaults = UserDefaults.standard
+        let keys = ["catalogPath", "recentCatalogPaths"]
+        let savedDefaults = keys.map { defaults.object(forKey: $0) }
+        defer {
+            for (key, value) in zip(keys, savedDefaults) { defaults.set(value, forKey: key) }
+        }
+        defaults.removeObject(forKey: "recentCatalogPaths")
+        library.open(root)
+        library.open(created)
+        library.open(root)
+        precondition(library.recentCatalogs == [root, created])
+        try fm.removeItem(at: created)
+        precondition(Library().recentCatalogs == [root])
+        print("PASS: recent catalogs are persisted, deduplicated, and listed newest first")
         print("PASS: inline folder creation, selection, duplicate and invalid-name handling")
         print("PASS: rename preserves descendants, selection, expansion and draft; invalid names and collisions preserve files")
     }
